@@ -226,7 +226,13 @@
     auth.client = window.google.accounts.oauth2.initTokenClient({
       client_id: CFG.clientId, scope: SCOPES,
       callback: onToken,
-      error_callback: (e) => { evStatus = e && e.type === "popup_closed" ? { kind: "plain" } : { kind: "error", msg: "ログインできませんでした。" }; renderStatus(); },
+      error_callback: (e) => {
+        const t = e && e.type;
+        evStatus = t === "popup_closed" ? { kind: "plain" }
+          : t === "popup_failed_to_open" ? { kind: "error", msg: "ログイン画面（ポップアップ）がブロックされました。このサイトのポップアップを許可して、もう一度押してください。" }
+          : { kind: "error", msg: "ログインできませんでした。" };
+        renderStatus();
+      },
     });
   }
   window.__gisLoaded = () => { initClient(); if (evStatus.kind === "wait") signIn(); };
