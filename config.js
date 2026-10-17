@@ -2,7 +2,7 @@
 window.FC_CONFIG = {
   // Google Cloud で作った「OAuth 2.0 クライアント ID」（ウェブ アプリケーション）。
   // 例: "123456789012-abcdefghijklmnopqrstuvwxyz123456.apps.googleusercontent.com"
-  clientId: "",
+  clientId: "294352991487-hvi3niu5hminp5lqle5ap1m3q3kjcmjo.apps.googleusercontent.com",
 
   // true にすると、選んだ日を Google ドライブのアプリ専用領域にも保存し、
   // スマホと PC で同じ状態になる（Google Drive API を有効にしておくこと）。
