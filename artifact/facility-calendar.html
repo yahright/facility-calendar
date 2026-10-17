@@ -1,0 +1,412 @@
+<title>施設利用カレンダー</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700&family=IBM+Plex+Sans+JP:wght@400;500;600&display=swap">
+<style>
+/* Layout: one month grid fills the page; a compact summary bar above it with the running total. */
+:root {
+  --bg: #f4f4f1;
+  --surface: #ffffff;
+  --line: #d9dad4;
+  --ink: #1e2022;
+  --muted: #6b6f6a;
+  --accent: #1f6f5f;        /* 利用ON */
+  --accent-ink: #ffffff;
+  --accent-soft: #dcefe8;
+  --holiday: #c0392b;
+  --saturday: #2b5aa6;
+  --warn: #b7791f;
+  --chip: #eef0ec;
+  --chip-ink: #3a3e3a;
+  --display: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", sans-serif;
+  --body: "IBM Plex Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #16181a; --surface: #202326; --line: #363a3e; --ink: #e8e9e6; --muted: #9ba09b;
+    --accent: #3fa88e; --accent-ink: #0f1a16; --accent-soft: #1d3a32;
+    --holiday: #ef7b6e; --saturday: #7aa5e8; --warn: #e0a84a;
+    --chip: #2c3034; --chip-ink: #d6d9d4;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #16181a; --surface: #202326; --line: #363a3e; --ink: #e8e9e6; --muted: #9ba09b;
+  --accent: #3fa88e; --accent-ink: #0f1a16; --accent-soft: #1d3a32;
+  --holiday: #ef7b6e; --saturday: #7aa5e8; --warn: #e0a84a;
+  --chip: #2c3034; --chip-ink: #d6d9d4;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--body); font-size: 14px; line-height: 1.45;
+  padding-block: 16px 32px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  font-variant-numeric: tabular-nums;
+}
+.wrap { max-width: 1080px; margin: 0 auto; display: grid; gap: 14px; }
+
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }
+.month { display: flex; align-items: center; gap: 6px; }
+.month h1 { font-family: var(--display); font-weight: 700; font-size: 24px; margin: 0; min-width: 8.5em; text-align: center; letter-spacing: 0.02em; }
+.nav { border: 1px solid var(--line); background: var(--surface); color: var(--ink); width: 36px; height: 36px; border-radius: 8px; font-size: 18px; cursor: pointer; }
+.nav:hover { border-color: var(--muted); }
+.today { border: 1px solid var(--line); background: var(--surface); color: var(--ink); height: 36px; padding: 0 12px; border-radius: 8px; font: inherit; cursor: pointer; }
+
+.goal { display: flex; align-items: center; gap: 8px; }
+.goal label { color: var(--muted); font-size: 13px; }
+.goal input { width: 4.5em; height: 36px; font: inherit; font-size: 16px; text-align: center; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
+
+.tally { margin-left: auto; display: grid; gap: 4px; min-width: 220px; flex: 1 1 220px; }
+.tally .nums { display: flex; align-items: baseline; gap: 10px; }
+.tally .big { font-family: var(--display); font-size: 28px; font-weight: 700; line-height: 1; }
+.tally .big small { font-size: 14px; font-weight: 500; color: var(--muted); }
+.tally .rest { font-size: 13px; color: var(--muted); }
+.tally .rest.over { color: var(--warn); font-weight: 600; }
+.tally .rest.done { color: var(--accent); font-weight: 600; }
+.bar { height: 6px; background: var(--chip); border-radius: 3px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .2s; }
+.bar i.over { background: var(--warn); }
+
+.status { font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; min-height: 1.4em; }
+.status button { font: inherit; font-size: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 6px; padding: 3px 9px; cursor: pointer; }
+.status .err { color: var(--holiday); }
+
+.cal { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.dow { display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 1px solid var(--line); }
+.dow div { text-align: center; font-size: 12px; padding: 6px 0; color: var(--muted); letter-spacing: 0.08em; }
+.dow div:first-child { color: var(--holiday); }
+.dow div:last-child { color: var(--saturday); }
+.grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+.day {
+  position: relative; min-height: 92px; padding: 4px 4px 22px; text-align: left;
+  border: 0; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); font: inherit; cursor: pointer;
+  display: flex; flex-direction: column; gap: 2px; min-width: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.day:nth-child(7n) { border-right: 0; }
+.day:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; z-index: 1; }
+.day.blank { background: var(--bg); cursor: default; }
+.day .num { font-family: var(--display); font-weight: 500; font-size: 15px; line-height: 1; display: flex; align-items: center; gap: 4px; }
+.day.sun .num, .day.hol .num { color: var(--holiday); }
+.day.sat .num { color: var(--saturday); }
+.day.is-today .num b { background: var(--ink); color: var(--surface); border-radius: 999px; width: 22px; height: 22px; display: inline-grid; place-items: center; font-weight: 700; }
+.day .num b { font-weight: inherit; }
+.day .holname { font-size: 10px; color: var(--holiday); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chips { display: grid; gap: 2px; min-width: 0; }
+.chip { font-size: 11px; line-height: 1.3; background: var(--chip); color: var(--chip-ink); border-radius: 3px; padding: 1px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chip .t { color: var(--muted); font-size: 10px; margin-right: 2px; }
+.more { font-size: 10px; color: var(--muted); padding-left: 2px; }
+.day.on { background: var(--accent-soft); }
+.day.on::after {
+  content: "利用"; position: absolute; left: 4px; bottom: 4px;
+  font-family: var(--display); font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+  background: var(--accent); color: var(--accent-ink); border-radius: 4px; padding: 1px 6px;
+}
+.day.on .num { color: var(--accent); }
+.day.on.sun .num, .day.on.hol .num { color: var(--holiday); }
+.day.on.sat .num { color: var(--saturday); }
+
+.foot { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 12px; color: var(--muted); }
+.foot button { font: inherit; font-size: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+.foot .danger { color: var(--holiday); }
+.foot .confirm { display: none; gap: 8px; align-items: center; }
+.foot .confirm.show { display: inline-flex; }
+
+@media (max-width: 640px) {
+  body { padding-block: 10px 24px; }
+  .month h1 { font-size: 20px; min-width: 7em; }
+  .day { min-height: 74px; padding: 3px 2px 20px; }
+  .day .num { font-size: 13px; }
+  .chip { font-size: 10px; padding: 1px 3px; }
+  .chip .t { display: none; }
+  .day.on::after { font-size: 10px; padding: 1px 4px; letter-spacing: 0.05em; left: 2px; bottom: 3px; }
+  .tally { min-width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
+</style>
+
+<div class="wrap">
+  <div class="top">
+    <div class="month">
+      <button class="nav" id="prev" aria-label="前の月">‹</button>
+      <h1 id="title">2026年10月</h1>
+      <button class="nav" id="next" aria-label="次の月">›</button>
+      <button class="today" id="gotoToday">今月</button>
+    </div>
+    <div class="goal">
+      <label for="target">月の利用回数</label>
+      <input type="number" id="target" min="0" max="31" inputmode="numeric" value="20">
+      <span style="color:var(--muted);font-size:13px">日</span>
+    </div>
+    <div class="tally">
+      <div class="nums">
+        <div class="big"><span id="count">0</span> <small>/ <span id="goal">20</span> 日</small></div>
+        <div class="rest" id="rest">あと 20 日</div>
+      </div>
+      <div class="bar"><i id="bar"></i></div>
+    </div>
+  </div>
+
+  <div class="status" id="status"></div>
+
+  <div class="cal">
+    <div class="dow"><div>日</div><div>月</div><div>火</div><div>水</div><div>木</div><div>金</div><div>土</div></div>
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="foot">
+    <span>日をタップで利用 ⇄ 利用なし。選んだ日は自動で保存されます。</span>
+    <button id="clearBtn" class="danger">この月の選択をすべて解除</button>
+    <span class="confirm" id="confirm">
+      <span>本当に解除しますか？</span>
+      <button id="clearYes" class="danger">解除する</button>
+      <button id="clearNo">やめる</button>
+    </span>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const pad = (n) => String(n).padStart(2, "0");
+  const keyOf = (y, m) => `${y}-${pad(m + 1)}`;
+  const dateKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const todayKey = dateKey(new Date());
+
+  // ---- state ----
+  const now = new Date();
+  let view = { y: now.getFullYear(), m: now.getMonth() };
+  let state = { target: 20, days: {} };   // current month
+  let lastTarget = 20;
+  try { lastTarget = Number(localStorage.getItem("fc:lastTarget")) || 20; } catch (e) {}
+
+  let db = null, docRef = null, unsubDoc = null, saveTimer = null, saving = Promise.resolve();
+  let mcp = null, calendars = null, eventsByDay = {}, holidays = {}, eventsToken = 0;
+  let evStatus = { kind: "idle" };
+
+  // ---- rendering ----
+  function render() {
+    $("#title").textContent = `${view.y}年${view.m + 1}月`;
+    const count = Object.values(state.days).filter(Boolean).length;
+    const target = Number(state.target) || 0;
+    $("#count").textContent = count;
+    $("#goal").textContent = target;
+    if ($("#target") !== document.activeElement) $("#target").value = target;
+    const rest = $("#rest");
+    rest.classList.remove("over", "done");
+    if (count > target) { rest.textContent = `超過 ${count - target} 日`; rest.classList.add("over"); }
+    else if (count === target && target > 0) { rest.textContent = "ちょうど目標どおり"; rest.classList.add("done"); }
+    else rest.textContent = `あと ${target - count} 日`;
+    const bar = $("#bar");
+    bar.style.width = target ? Math.min(100, count / target * 100) + "%" : "0%";
+    bar.classList.toggle("over", count > target);
+
+    const grid = $("#grid");
+    const first = new Date(view.y, view.m, 1);
+    const daysIn = new Date(view.y, view.m + 1, 0).getDate();
+    const lead = first.getDay();
+    const cells = [];
+    for (let i = 0; i < lead; i++) cells.push(`<div class="day blank" aria-hidden="true"></div>`);
+    for (let d = 1; d <= daysIn; d++) {
+      const dt = new Date(view.y, view.m, d);
+      const k = dateKey(dt);
+      const dow = dt.getDay();
+      const cls = ["day"];
+      if (dow === 0) cls.push("sun");
+      if (dow === 6) cls.push("sat");
+      if (holidays[k]) cls.push("hol");
+      if (k === todayKey) cls.push("is-today");
+      if (state.days[k]) cls.push("on");
+      const evs = eventsByDay[k] || [];
+      const shown = evs.slice(0, 3);
+      const chips = shown.map(e =>
+        `<div class="chip" title="${esc(e.title)}">${e.time ? `<span class="t">${e.time}</span>` : ""}${esc(e.title)}</div>`).join("");
+      const more = evs.length > 3 ? `<div class="more">+${evs.length - 3}</div>` : "";
+      const hol = holidays[k] ? `<div class="holname" title="${esc(holidays[k])}">${esc(holidays[k])}</div>` : "";
+      cells.push(`<button class="${cls.join(" ")}" data-date="${k}" aria-pressed="${state.days[k] ? "true" : "false"}" aria-label="${view.m + 1}月${d}日${state.days[k] ? " 利用" : ""}">
+        <div class="num"><b>${d}</b></div>${hol}<div class="chips">${chips}${more}</div></button>`);
+    }
+    const tail = (7 - (cells.length % 7)) % 7;
+    for (let i = 0; i < tail; i++) cells.push(`<div class="day blank" aria-hidden="true"></div>`);
+    grid.innerHTML = cells.join("");
+    renderStatus();
+  }
+  function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+  function renderStatus() {
+    const el = $("#status");
+    const s = evStatus;
+    let html = "";
+    if (s.kind === "idle") html = "";
+    else if (s.kind === "nomcp") html = `<span>Google カレンダーの予定は claude.ai で開いたときに表示されます。</span>`;
+    else if (s.kind === "loading") html = `<span>予定を読み込み中…</span>`;
+    else if (s.kind === "ok") {
+      const t = s.storedAt ? new Date(s.storedAt) : null;
+      html = `<span>予定: ${s.calCount} カレンダー${t ? `（${pad(t.getHours())}:${pad(t.getMinutes())} 時点）` : ""}</span><button id="reload">更新</button>`;
+      if (s.failed) html += `<span class="err">${esc(s.failed)}</span>`;
+    }
+    else if (s.kind === "error") html = `<span class="err">${esc(s.msg)}</span>${s.retry ? `<button id="reload">${esc(s.retry)}</button>` : ""}`;
+    el.innerHTML = html;
+    const b = $("#reload");
+    if (b) b.addEventListener("click", () => loadEvents(true));
+  }
+
+  // ---- persistence ----
+  function storageKey() { return "fc:" + keyOf(view.y, view.m); }
+  function loadLocal() {
+    try {
+      const raw = localStorage.getItem(storageKey());
+      state = raw ? JSON.parse(raw) : { target: lastTarget, days: {} };
+    } catch (e) { state = { target: lastTarget, days: {} }; }
+    if (!state.days) state.days = {};
+    if (typeof state.target !== "number") state.target = lastTarget;
+  }
+  function persist() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+      const body = { target: Number(state.target) || 0, days: { ...state.days } };
+      try { localStorage.setItem(storageKey(), JSON.stringify(body)); localStorage.setItem("fc:lastTarget", String(body.target)); } catch (e) {}
+      lastTarget = body.target;
+      if (docRef) {
+        const ref = docRef;
+        saving = saving.then(() => ref.set(body)).catch(() => {});
+      }
+    }, 350);
+  }
+  function openMonth() {
+    if (unsubDoc) { unsubDoc(); unsubDoc = null; }
+    loadLocal();
+    render();
+    if (db) {
+      docRef = db.doc("months/" + keyOf(view.y, view.m));
+      const ref = docRef;
+      unsubDoc = ref.onSnapshot((snap) => {
+        if (ref !== docRef) return;
+        if (snap.exists) {
+          const d = snap.data();
+          state = { target: typeof d.target === "number" ? d.target : lastTarget, days: { ...(d.days || {}) } };
+        } else if (snap.metadata && !snap.metadata.fromCache) {
+          // nothing stored for this month yet: keep local (or empty) state
+        }
+        render();
+      }, () => { /* subscription ended; local state stays usable */ });
+    }
+    loadEvents(false);
+  }
+
+  // ---- Google Calendar events ----
+  function monthRange() {
+    const s = `${view.y}-${pad(view.m + 1)}-01T00:00:00`;
+    const n = new Date(view.y, view.m + 1, 1);
+    const e = `${n.getFullYear()}-${pad(n.getMonth() + 1)}-01T00:00:00`;
+    return { startTime: s, endTime: e };
+  }
+  function addEvent(map, k, ev) { (map[k] ||= []).push(ev); }
+  function eachDay(from, toExclusive, fn) {
+    const d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+    while (d < toExclusive) { fn(dateKey(d)); d.setDate(d.getDate() + 1); }
+  }
+  function parseDate(s) { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); }
+
+  function errMessage(code, server) {
+    switch (code) {
+      case "server_not_connected": return { msg: "Google カレンダーが接続されていません。claude.ai の 設定 → コネクタ で追加してください。" };
+      case "needs_reauth": return { msg: "Google カレンダーの再接続が必要です（claude.ai の 設定 → コネクタ）。" };
+      case "selection_required": return { msg: "Google カレンダーのコネクタが複数あります。使うものを選んでください。", retry: "再読込" };
+      case "not_in_manifest": case "blocked_by_policy": return { msg: "このページでの Google カレンダーの利用が許可されていません。予定なしで日を選べます。" };
+      case "approval_required": case "consent_required": return { msg: "予定の読み込みには許可が必要です。", retry: "予定を読み込む" };
+      case "not_granted": case "capability_disabled": case "capability_removed": return { msg: "この画面では予定を表示できません。予定なしで日を選べます。" };
+      default: return { msg: "予定を読み込めませんでした。", retry: "再読込" };
+    }
+  }
+
+  async function loadEvents(force) {
+    if (!mcp) { evStatus = { kind: "nomcp" }; renderStatus(); return; }
+    const token = ++eventsToken;
+    evStatus = { kind: "loading" }; renderStatus();
+    const cacheOpt = force ? { cache: { staleTime: 0, refresh: true } } : { cache: { staleTime: 5 * 60 * 1000 } };
+    try {
+      if (!calendars || force) {
+        const r = await mcp.callTool("Google Calendar", "list_calendars", {}, cacheOpt);
+        const p = r.payload || {};
+        calendars = (p.calendars || []).map(c => ({ id: c.id, name: c.summary || c.id }));
+        if (!calendars.length) calendars = [{ id: "primary", name: "primary" }];
+      }
+    } catch (e) {
+      if (token !== eventsToken) return;
+      if (e && e.retryable && !force && e.code !== "approval_required") {
+        await new Promise(r => setTimeout(r, Math.min(60000, (e.retryAfterMs || 1500) + Math.random() * 800)));
+        if (token !== eventsToken) return;
+        return loadEvents(true);
+      }
+      evStatus = { kind: "error", ...errMessage(e && e.code) }; renderStatus(); return;
+    }
+    const range = monthRange();
+    const results = await Promise.allSettled(calendars.map(c =>
+      mcp.callTool("Google Calendar", "list_events", { calendarId: c.id, startTime: range.startTime, endTime: range.endTime, orderBy: "startTime", pageSize: 250 }, cacheOpt)
+        .then(r => ({ cal: c, r }))));
+    if (token !== eventsToken) return;
+    const map = {}, hol = {};
+    let ok = 0, storedAt = null, failedNames = [];
+    for (const res of results) {
+      if (res.status !== "fulfilled") { failedNames.push(res.reason && res.reason.code ? res.reason.code : "error"); continue; }
+      ok++;
+      const { cal, r } = res.value;
+      if (r.cache && r.cache.storedAt) storedAt = storedAt ? Math.min(storedAt, r.cache.storedAt) : r.cache.storedAt;
+      const isHoliday = /#holiday@/.test(cal.id);
+      const p = r.payload || {};
+      for (const ev of (p.events || [])) {
+        if (ev.status === "cancelled") continue;
+        const title = ev.summary || "(タイトルなし)";
+        if (ev.start && ev.start.date) {
+          const from = parseDate(ev.start.date);
+          const to = ev.end && ev.end.date ? parseDate(ev.end.date) : new Date(from.getFullYear(), from.getMonth(), from.getDate() + 1);
+          eachDay(from, to, k => { if (isHoliday) hol[k] = title; else addEvent(map, k, { title, time: "", ts: 0 }); });
+        } else if (ev.start && ev.start.dateTime) {
+          const s = new Date(ev.start.dateTime);
+          const e = ev.end && ev.end.dateTime ? new Date(new Date(ev.end.dateTime).getTime() - 1) : s;
+          const time = `${s.getHours()}:${pad(s.getMinutes())}`;
+          eachDay(s, new Date(e.getFullYear(), e.getMonth(), e.getDate() + 1), k => addEvent(map, k, { title, time, ts: s.getHours() * 60 + s.getMinutes() }));
+        }
+      }
+    }
+    for (const k in map) map[k].sort((a, b) => a.ts - b.ts);
+    eventsByDay = map; holidays = hol;
+    if (ok === 0 && results.length) {
+      const e = results[0].reason || {};
+      evStatus = { kind: "error", ...errMessage(e.code) };
+    } else {
+      evStatus = { kind: "ok", calCount: ok, storedAt, failed: failedNames.length ? `${failedNames.length} 件のカレンダーを読み込めませんでした` : "" };
+    }
+    render();
+  }
+
+  // ---- interactions ----
+  $("#grid").addEventListener("click", (ev) => {
+    const b = ev.target.closest(".day[data-date]");
+    if (!b) return;
+    const k = b.dataset.date;
+    if (state.days[k]) delete state.days[k]; else state.days[k] = true;
+    render(); persist();
+  });
+  $("#target").addEventListener("input", (ev) => {
+    const v = Math.max(0, Math.min(31, Number(ev.target.value) || 0));
+    state.target = v; render(); persist();
+  });
+  $("#prev").addEventListener("click", () => { view.m--; if (view.m < 0) { view.m = 11; view.y--; } openMonth(); });
+  $("#next").addEventListener("click", () => { view.m++; if (view.m > 11) { view.m = 0; view.y++; } openMonth(); });
+  $("#gotoToday").addEventListener("click", () => { view = { y: now.getFullYear(), m: now.getMonth() }; openMonth(); });
+  $("#clearBtn").addEventListener("click", () => $("#confirm").classList.add("show"));
+  $("#clearNo").addEventListener("click", () => $("#confirm").classList.remove("show"));
+  $("#clearYes").addEventListener("click", () => { state.days = {}; $("#confirm").classList.remove("show"); render(); persist(); });
+
+  // ---- boot ----
+  openMonth();
+  const use = (n) => (window.claude && typeof window.claude.use === "function") ? window.claude.use(n).catch(() => null) : Promise.resolve(null);
+  use("db").then((d) => { if (d) { db = d; openMonth(); } });
+  use("mcp").then((m) => { if (m) { mcp = m; loadEvents(false); } else { evStatus = { kind: "nomcp" }; renderStatus(); } });
+})();
+</script>

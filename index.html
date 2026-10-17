@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f6f5f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="施設利用">
+<title>施設利用カレンダー</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700&family=IBM+Plex+Sans+JP:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header class="head">
+    <div class="brand"><span class="mark" aria-hidden="true">利</span><span>施設利用カレンダー</span></div>
+    <div class="account">
+      <span class="who" id="who" hidden></span>
+      <button class="primary small" id="signinBtn"><span class="full">Google の予定を取り込む</span><span class="short">Google 連携</span></button>
+      <button class="link" id="signout" hidden>ログアウト</button>
+    </div>
+  </header>
+
+  <main id="app">
+    <div class="top">
+      <div class="month">
+        <button class="nav" id="prev" aria-label="前の月">‹</button>
+        <h1 id="title">----年--月</h1>
+        <button class="nav" id="next" aria-label="次の月">›</button>
+        <button class="today" id="gotoToday">今月</button>
+      </div>
+      <div class="goal">
+        <label for="target">月の利用回数</label>
+        <input type="number" id="target" min="0" max="31" inputmode="numeric" value="20">
+        <span class="unit">日</span>
+      </div>
+      <div class="tally">
+        <div class="nums">
+          <div class="big"><span id="count">0</span> <small>/ <span id="goal">20</span> 日</small></div>
+          <div class="rest" id="rest">あと 20 日</div>
+        </div>
+        <div class="bar"><i id="bar"></i></div>
+      </div>
+    </div>
+
+    <div class="status" id="status"></div>
+
+    <div class="cal">
+      <div class="dow"><div>日</div><div>月</div><div>火</div><div>水</div><div>木</div><div>金</div><div>土</div></div>
+      <div class="grid" id="grid"></div>
+    </div>
+
+    <section class="card detail" id="detail" hidden>
+      <div class="detail-head">
+        <h2 id="detailTitle"></h2>
+        <button class="toggle" id="detailToggle"></button>
+      </div>
+      <ul class="evlist" id="evlist"></ul>
+    </section>
+
+    <details class="card cals" id="cals" hidden>
+      <summary>表示するカレンダー <span id="calCount"></span></summary>
+      <div class="callist" id="callist"></div>
+    </details>
+
+    <div class="foot">
+      <span id="footNote">日をタップで利用 ⇄ 利用なし。選んだ日はこの端末に保存されます。</span>
+      <button id="clearBtn" class="danger">この月の選択をすべて解除</button>
+      <span class="confirm" id="confirm">
+        <span>本当に解除しますか？</span>
+        <button id="clearYes" class="danger">解除する</button>
+        <button id="clearNo">やめる</button>
+      </span>
+    </div>
+  </main>
+
+</div>
+<script src="config.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer onload="window.__gisLoaded && window.__gisLoaded()"></script>
+<script src="app.js"></script>
+</body>
+</html>
